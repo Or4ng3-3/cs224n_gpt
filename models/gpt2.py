@@ -47,19 +47,24 @@ class GPT2Model(GPTPreTrainedModel):
     input_shape = input_ids.size()
     seq_length = input_shape[1]
 
-    inputs_embeds = None
+    # input_ids: [batch_size, seq_len]
+
+    input_embeds = self.word_embedding(input_ids) # input_embeds [batch_size, seq_len, hidden_dim]
 
     ### YOUR CODE HERE
-    raise NotImplementedError
 
+    pos_ids = self.position_ids[:, :seq_length]  # pos_ids [1, seq_len]
 
-    pos_ids = self.position_ids[:, :seq_length]
-    pos_embeds = None
+    pos_embeds = self.pos_embedding(pos_ids)  # pos_embeds [1, seq_len, hidden_dim]
+
+    embeddings = input_embeds + pos_embeds
+
+    embeddings_dropout = self.embed_dropout(embeddings)
 
     ### TODO: Use pos_ids to get position embedding from self.pos_embedding into pos_embeds.
     ###       Then, add two embeddings together; then apply dropout and return.
     ### YOUR CODE HERE
-    raise NotImplementedError
+    return embeddings_dropout
 
 
   def encode(self, hidden_states, attention_mask):
@@ -90,7 +95,7 @@ class GPT2Model(GPTPreTrainedModel):
 
     # Feed to a transformer (a stack of GPTLayers).
     sequence_output = self.encode(embedding_output, attention_mask=attention_mask)
-    sequence_output = self.final_layer_norm(sequence_output)
+    sequence_output = self.final_layer_norm(sequence_output)  # batch_size, seq_len, hidden_dim
 
     # Get the hidden state of the final token.
     last_non_pad_idx = attention_mask.sum(dim=1) - 1  # Subtract 1 to get last index
@@ -106,7 +111,11 @@ class GPT2Model(GPTPreTrainedModel):
       return hidden_state(s) * E^T
     """
     ### YOUR CODE HERE
-    raise NotImplementedError
+    # hidden_state [batch_size, hidden_dim] @ E^T[hidden_dim, vocabulary] -> token [batch_size, vocabulary]
+    embed_weights = self.word_embedding.weight 
+    logits = torch.matmul(hidden_state, embed_weights.t())
+
+    return logits
 
 
   @classmethod

@@ -44,10 +44,10 @@ class CausalSelfAttention(nn.Module):
     masked_dot_prod = attention_mask + dot_prod 
     
     # causual mask:
-    t = self.key(-2)
-    causual_mask = torch.triu(torch.ones(t, t), diagonal=1).bool
+    t = query.size(-2)
+    causual_mask = torch.triu(torch.ones(t, t, device=query.device), diagonal=1).bool()
     
-    dot_prod = dot_prod.masked_fill(causual_mask, float('-inf'))
+    masked_dot_prod = masked_dot_prod.masked_fill(causual_mask, float('-inf'))
 
     soft_dot_prod = torch.softmax(masked_dot_prod, dim = -1)
 
