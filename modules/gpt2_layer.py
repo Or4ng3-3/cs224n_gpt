@@ -30,7 +30,14 @@ class GPT2Layer(nn.Module):
         IN THIS FUNCTION.
     """
     ### YOUR CODE HERE
-    raise NotImplementedError
+    # result = input + dropout(dense_layer(output))
+    # after attention, we have to do a linear transformation to merge the information between different heads
+    # after FFN, we have to map a large dim to our d_modal
+    output = dense_layer(output)
+    output = dropout(output)
+    return input + output
+
+    # raise NotImplementedError
 
 
   def forward(self, hidden_states, attention_mask):
@@ -43,5 +50,15 @@ class GPT2Layer(nn.Module):
     """
 
     ### YOUR CODE HERE
+    normed_input = self.attention_layer_norm(hidden_states)
+    attention = self.self_attention(normed_input, attention_mask)
+    added_attention = self.add(hidden_states, attention, self.attention_dense, self.attention_dropout)
+    normed_FFN_input = self.out_layer_norm(added_attention)
+    feed_forward = self.interm_dense(normed_FFN_input)
+    feed_forward = self.interm_af(feed_forward)
+    added_ff = self.add(added_attention, feed_forward, self.out_dense, self.out_dropout)
+
+    return added_ff
+
     raise NotImplementedError
 
