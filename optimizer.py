@@ -61,7 +61,46 @@ class AdamW(Optimizer):
                 ###
                 ###       Refer to the default project handout for more details.
                 ### YOUR CODE HERE
-                raise NotImplementedError
+                if(len(state) == 0):
+                    state["step"] = 0
+                    state["pre_m_t"] = torch.zeros_like(p.data)
+                    state["pre_v_t"] = torch.zeros_like(p.data)
+
+                beta_1 = group["betas"][0]
+                beta_2 = group["betas"][1]
+                eps = group["eps"]
+                weight_decay = group["weight_decay"]
+
+                state["step"] += 1
+                m_t = state["pre_m_t"]
+                v_t = state["pre_v_t"]
+
+                # m_t = beta_1 * state["pre_m_t"] + (1-beta_1) * p.grad
+                m_t.mul_(beta_1).add_(grad, alpha = 1 - beta_1)
+
+                #v_t = beta_2 * state["pre_v_t"] + (1-beta_2) * p.grad * p.grad
+                v_t.mul_(beta_2).addcmul_(grad, grad, value = 1 - beta_2) 
+                
+                # if we use add_ and mul_ which do not create new tensors in memory, we don't need to writeback.
+                # state["pre_m_t"] = m_t
+                # state["pre_v_t"] = v_t
+
+                if(group["correct_bias"]):
+                    alpha_t = alpha * ((1 - (beta_2 ** state["step"])) ** 0.5 / (1 - (beta_1 ** state["step"])))
+                else:
+                    alpha_t = alpha
+
+
+                # theta_{t+1} = theta_t - \alpha \cdot \frac{\hat{m}_t}{\sqrt{\hat{v_t}} + \epsilon} - \alpha \lambda \theta_t
+                
+                denom = (v_t.sqrt()).add_(eps)
+                p.data.addcdiv_(m_t, denom, value = -alpha_t)
+
+                if(weight_decay > 0):
+                    p.data.add_ (p.data, alpha = -alpha * weight_decay)
+
+
+                # p = p - alpha_t * state["weight_decay"] * (m_t / (v_t ** 0.5 + eps))
 
 
         return loss
