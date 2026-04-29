@@ -13,6 +13,10 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from transformers import GPT2Tokenizer
 from sklearn.metrics import f1_score, accuracy_score
+import subprocess
+import threading
+import time
+import datetime
 
 from models.gpt2 import GPT2Model
 from optimizer import AdamW
@@ -30,6 +34,28 @@ def seed_everything(seed=11711):
   torch.cuda.manual_seed_all(seed)
   torch.backends.cudnn.benchmark = False
   torch.backends.cudnn.deterministic = True
+
+
+def start_nvidia_monitor(interval=10):
+  """Start a daemon thread that prints `nvidia-smi` output every `interval` seconds.
+
+  The thread is daemonized so it won't block program exit.
+  """
+  def _monitor():
+    while True:
+      try:
+        out = subprocess.check_output(['nvidia-smi']).decode('utf-8')
+      except Exception as e:
+        ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        print(f"[nvidia-monitor] {ts} error: {e}")
+      else:
+        ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        print(f"[nvidia-monitor] {ts}\n{out}")
+      time.sleep(interval)
+
+  t = threading.Thread(target=_monitor, daemon=True)
+  t.start()
+  return t
 
 
 class GPT2SentimentClassifier(torch.nn.Module):
@@ -369,6 +395,9 @@ def get_args():
 if __name__ == "__main__":
   args = get_args()
   seed_everything(args.seed)
+  # Start a background nvidia-smi monitor when using GPU
+  if getattr(args, 'use_gpu', False):
+    start_nvidia_monitor(interval=10)
 
   print('Training Sentiment Classifier on SST...')
   config = SimpleNamespace(
